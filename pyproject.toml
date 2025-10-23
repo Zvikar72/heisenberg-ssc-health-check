@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heisenberg-toolkit"
+version = "0.1.0"
+description = "Heisenberg: sbom + deps.dev health checks"
+requires-python = ">=3.11.9"
+dependencies = [
+    "requests>=2.32.5",
+]
+
+[project.scripts]
+heisenberg = "heisenberg.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["heisenberg*"]    # only package your code
+exclude = ["img*", "tests*", "docs*"]
