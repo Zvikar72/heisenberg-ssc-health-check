@@ -15,5 +15,5 @@ dependencies = [
 heisenberg = "heisenberg.main:cli"
 
 [tool.setuptools.packages.find]
-include = ["heisenberg*"]    # only package your code
+include = ["heisenberg*"]    
 exclude = ["img*", "tests*", "docs*"]
