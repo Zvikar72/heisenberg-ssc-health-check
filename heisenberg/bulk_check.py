@@ -3,6 +3,7 @@
 import subprocess
 import csv
 import sys
+import os
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
@@ -125,16 +126,16 @@ def run_check(package_manager, package, version):
     
 
 CSV_HEADER = [
-    "repo_name", "package", "version", "language", "health_score", "custom_health_score", "description",
+    "repo_name", "package", "version", "language", "license", "health_score", "custom_health_score", "description",
     "popularity_info_stars", "popularity_info_forks", "maintenance_info", "dependents",
     "security_info", "security_advisories", "security_score", "deprecated",
     "deps_url", "snyk_url", "socket_url"
 ] 
 
-def build_csv_row(repo_name, name, version, package_manager):
+def build_csv_row(repo_name, name, version, package_manager, license_info="N/A"):
     result = run_check(package_manager, name, version)
     return [
-        repo_name, name, version, package_manager,
+        repo_name, name, version, package_manager, license_info,
         result.get("health_score", "N/A"),
         result.get("custom_health_score", "N/A"),
         result.get("description", "N/A"),
@@ -151,30 +152,12 @@ def build_csv_row(repo_name, name, version, package_manager):
         result.get("socket_url", "N/A"), 
     ]
 
-def process_sbom_file(input_file, repo_name, writer): 
-    tasks = []
-    with open(input_file, "r") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            name = row.get("package", "").strip()
-            version = row.get("version", "").strip()
-            package_manager = row.get("language", "").strip().lower()
-
-            if package_manager == "golang":
-                package_manager = "go"
-
-            if not name or not version or not package_manager:
-                print(f"Skipping incomplete row: {row}")
-                continue
-
-            print(f"Queueing: {name} {version} ({package_manager})")
-            tasks.append((repo_name, name, version, package_manager))
-
+def process_tasks(tasks, writer):
     launch_count = 0
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_pkg = {}
-        for repo_name, name, version, package_manager in tasks:
-            future = executor.submit(build_csv_row, repo_name, name, version, package_manager)
+        for repo_name, name, version, package_manager, license_info in tasks:
+            future = executor.submit(build_csv_row, repo_name, name, version, package_manager, license_info)
             future_to_pkg[future] = (name, version, package_manager)
 
             launch_count += 1
@@ -187,12 +170,35 @@ def process_sbom_file(input_file, repo_name, writer):
                 row_out = future.result()
             except Exception as e:
                 print(f"[ERROR] Failed {name} {version} ({package_manager}): {e}")
+                repo_name = tasks[0][0] if tasks else ""
                 row_out = [
-                    repo_name, name, version, package_manager,
+                    repo_name, name, version, package_manager, "N/A",
                     "Error", "Error", "Error", "Error", "Error", "Error", "Error",
                     "Error", "Error", "Error", "Error"
                 ]
             writer.writerow(row_out)
+
+def process_sbom_file(input_file, repo_name, writer): 
+    tasks = []
+    with open(input_file, "r") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            name = row.get("package", "").strip()
+            version = row.get("version", "").strip()
+            package_manager = row.get("language", "").strip().lower()
+            license_info = row.get("license", "N/A").strip()
+
+            if package_manager == "golang":
+                package_manager = "go"
+
+            if not name or not version or not package_manager:
+                print(f"Skipping incomplete row: {row}")
+                continue
+
+            print(f"Queueing: {name} {version} ({package_manager})")
+            tasks.append((repo_name, name, version, package_manager, license_info))
+
+    process_tasks(tasks, writer)
 
 def add_arguments(parser):  
     g = parser.add_mutually_exclusive_group(required=True)  
@@ -228,7 +234,8 @@ def run_bulk_for_repos(repos, sbom_dir=None, output_csv=None, org=DEFAULT_ORG):
 
 def main(args=None):
     if args is None:                       
-        args = parse_cli()    
+        args = parse_cli() 
+           
     if args.all:
         selected_repos = load_repos_from_file(args.repos_file)
     else:

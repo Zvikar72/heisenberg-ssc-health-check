@@ -61,7 +61,7 @@ def cli(args=None):
         out_path = os.path.join(args.out, f"{repo}_sbom.csv")
         with open(out_path, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["package", "version", "language"])
+            writer.writerow(["package", "version", "language", "license"])
             for pkg in packages:
                 name = pkg.get("name", "")
                 version = pkg.get("versionInfo", "")
@@ -72,7 +72,15 @@ def cli(args=None):
                         if locator.startswith("pkg"):
                             language = locator.split(":")[1].split("/")[0]
                         break
-                writer.writerow([name, version, language])
+                
+                license_info = pkg.get("licenseConcluded", "")
+                if not license_info or license_info == "NOASSERTION":
+                    license_info = pkg.get("licenseDeclared", "")
+                if not license_info or license_info == "NOASSERTION":
+                    license_info = "N/A"
+                
+                writer.writerow([name, version, language, license_info])
+
         print(f"[INFO] Saved SBOM to {out_path}\n")
 
 if __name__ == "__main__": 
