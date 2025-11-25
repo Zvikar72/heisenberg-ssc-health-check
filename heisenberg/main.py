@@ -1,7 +1,7 @@
 # heisenberg/main.py
 
 import argparse
-from . import github_sbom, heisenberg_depsdev, bulk_check, compromise_analysis 
+from . import github_sbom, heisenberg_depsdev, bulk_check, compromise_analysis, vendor 
 
 
 def cli():
@@ -17,6 +17,9 @@ def cli():
     bulk_parser = sub.add_parser("bulk", help="Run bulk health checks over repos")
     bulk_check.add_arguments(bulk_parser)
 
+    vendor_parser = sub.add_parser("vendor", help="Assess vendor/third-party SBOM")
+    vendor.add_arguments(vendor_parser)
+
     analyze_parser = sub.add_parser("analyze", help="Find and return compromised packages in an SBOM")
     compromise_analysis.add_arguments(analyze_parser)
 
@@ -29,6 +32,8 @@ def cli():
         heisenberg_depsdev.cli(args)
     elif args.cmd == "bulk":
         bulk_check.cli(args)
+    elif args.cmd == "vendor":
+        vendor.cli(args)
     elif args.cmd == "analyze":
         compromise_analysis.cli(args)
 

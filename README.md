@@ -7,7 +7,7 @@ Heisenberg is a software supply chain health check tool that analyzes dependenci
 
 ## Features
 -   `heisenberg check` - Inspect a single package@version (npm, PyPI, Go)
--   `heisenberg bulk` - Generate SBOMs for one or more repos or list of repos from the file, then parallel-check all dependencies and writes a CSV report.
+-   `heisenberg bulk` - Generate SBOMs for one or more repos or list of repos from the file, then parallel-check all dependencies and writes a CSV report. Also supports **vendor SBOM assessment** (CycloneDX, SPDX, CSV formats) in `vendor` mode.
 -   `heisenberg sbom` - Generate SBOMs for one or more repos [in case you need one].
 -   Adds **Custom Health Score** (experimental) that blends popularity, maintenance, vulnerabilities, and dependents (weighing heavier into security).
 -   CSV includes cross-check URLs (deps.dev / Snyk / Socket).
@@ -27,7 +27,10 @@ heisenberg check -mgmt npm -pkg lodash -v 4.17.21
 # 4. Generate bulk report for your repos
 heisenberg bulk -r repo1,repo2 -o results.csv
 
-# 5. Analyze repos for presence of affected packages
+# 5. Assess vendor SBOM
+heisenberg vendor --sbom-file vendor.cdx.json -o vendor_report.csv
+
+# 6. Analyze repos for presence of affected packages
 heisenberg analyze -r repo1,repo2 -pkg chalk,debug
 ```
 
@@ -70,9 +73,9 @@ python -m heisenberg.main analyze -r repo1,repo2 --org your-org -pkg left-pad -o
 ```
 
 ## Usage
-CLI's 4 separate modes:
+CLI's 5 separate modes:
 ```
-usage: heisenberg [-h] {sbom,check,bulk,analyze} ...
+usage: heisenberg [-h] {sbom,check,bulk,vendor,analyze} ...
 
 Heisenberg toolkit
 
@@ -81,6 +84,7 @@ positional arguments:
     sbom                Generate SBOMs from GitHub repos
     check               Check a single package via deps.dev
     bulk                Run bulk health checks over repos
+    vendor              Assess vendor/third-party SBOM
     analyze             Find and return compromised packages in an SBOM
 
 options:
@@ -184,7 +188,41 @@ heisenberg bulk -r repo1,repo2 -o results.csv [set --org ORG if you haven't set 
 heisenberg bulk --all --repos-file repos.txt -o results.csv
 ```
 #### Output CSV report columns
-```repo_name, package, version, language, health_score, custom_health_score, description, popularity_info_stars, popularity_info_forks, maintenance_info, dependents, security_info, security_advisories, security_score, deprecated, deps_url, snyk_url, socket_url```
+```repo_name, package, version, language, license, health_score, custom_health_score, description, popularity_info_stars, popularity_info_forks, maintenance_info, dependents, security_info, security_advisories, security_score, deprecated, deps_url, snyk_url, socket_url```
+
+
+### Vendor Mode
+Assess vendor/third-party SBOMs for supply chain risk. Accepts SBOM files in **CycloneDX** (JSON/XML), **SPDX** (JSON/XML), or **CSV** format and generates a comprehensive health report.
+
+```
+usage: heisenberg vendor [-h] --sbom-file SBOM_FILE [-o OUTPUT] [--vendor-name VENDOR_NAME]
+
+options:
+  -h, --help                     show this help message and exit
+  --sbom-file SBOM_FILE          Path to vendor SBOM file (CycloneDX/SPDX/CSV)
+  -o OUTPUT, --out OUTPUT        Output CSV path
+  --vendor-name VENDOR_NAME      Optional vendor name (used as repo_name in output)
+```
+
+#### Examples:
+```
+# Assess CycloneDX SBOM
+heisenberg vendor --sbom-file vendor.cdx.json -o vendor_assessment.csv
+
+# Assess SPDX XML SBOM with custom vendor name
+heisenberg vendor --sbom-file acme-corp.spdx.xml --vendor-name "ACME Corp" -o acme_report.csv
+
+# Assess CSV SBOM
+heisenberg vendor --sbom-file third-party.csv -o third_party_report.csv
+```
+
+**Supported SBOM Formats:**
+- CycloneDX: JSON (`.json`, `.cdx`) and XML (`.xml`)
+- SPDX: JSON (`.json`) and XML (`.xml`)
+- CSV: GitHub SBOM style
+
+#### Output CSV report columns
+```repo_name, package, version, language, license, health_score, custom_health_score, description, popularity_info_stars, popularity_info_forks, maintenance_info, dependents, security_info, security_advisories, security_score, deprecated, deps_url, snyk_url, socket_url```
 
 ### Analyze Mode
 This is an investigation mode that searches SBOM(s) for the presence of specific package names (case-insensitive by default). You can point at one SBOM file or let the tool generate SBOMs for repos (and it will auto-clean them afterwards). Output is a CSV of the matching rows from each SBOM.

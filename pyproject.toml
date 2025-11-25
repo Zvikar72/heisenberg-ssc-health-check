@@ -9,6 +9,7 @@ description = "Heisenberg: sbom + deps.dev health checks"
 requires-python = ">=3.11.9"
 dependencies = [
     "requests>=2.32.5",
+    "defusedxml>=0.7.1",
 ]
 
 [project.scripts]
